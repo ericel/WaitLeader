@@ -60,9 +60,24 @@ sudo bpftool map pin id <MAP_ID> /sys/fs/bpf/waitleader_map
 sudo /home/ubuntucplusplus/code/WaitLeader/build/waitleader_ctrl
 ```
 
+### 4. Reload the M3 parser
+
+If you are swapping in the URI-parsing XDP program, remove any stale pin first and then reload:
+
+```bash
+sudo rm -f /sys/fs/bpf/waitleader_xdp_m3
+sudo bpftool prog load /tmp/waitleader_xdp.o /sys/fs/bpf/waitleader_xdp_m3 type xdp
+sudo bpftool net attach xdp pinned /sys/fs/bpf/waitleader_xdp_m3 dev enp0s1
+```
+
+Then verify the active hook:
+
+```bash
+sudo bpftool net show
+```
+
 ## Notes
 
 - The controller expects the pinned map at `/sys/fs/bpf/waitleader_map`.
 - The XDP program currently uses a synthetic key derived from TCP source port and sequence number for the first milestone flow.
 - See `docs/software-design-document.md` for the milestone roadmap and validation evidence.
-

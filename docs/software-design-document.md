@@ -176,7 +176,7 @@ This project follows a strict, verification-driven execution model. Because kern
 | --- | --- | --- | --- | --- |
 | M1 | Fast Data Plane | Bare-metal verifier pass and NIC hook | Sub-millisecond OS verification time (< 500 usec) | ✅ Completed |
 | M2 | Control Plane | User-space map gateway | Atomic key insertion/deletion via libbpf | ✅ Completed |
-| M3 | Packet Parser | L7 HTTP URI extraction engine | Deterministic FarmHash/XXHash generation under verifier limits | Pending |
+| M3 | Packet Parser | L7 HTTP URI extraction engine | Deterministic FarmHash/XXHash generation under verifier limits | In progress |
 | M4 | Integration | DBWaller state machine hook | Zero-latency synchronization with SWR lifecycle | Pending |
 | M5 | Quality Assurance | Automated CTest and memory suite | Zero kernel memory leaks across 1M map mutations | Pending |
 | M6 | Empirical Defense | Thundering herd benchmark suite | Flatline CPU context-switch graphs under 10k req/sec load | Pending |
@@ -230,6 +230,20 @@ Tasks:
 Completion criteria:
 
 - The XDP program correctly extracts and hashes exact API endpoint strings from live request bursts.
+
+Validation evidence:
+
+- The updated XDP parser loaded successfully with the verifier.
+- The controller computed the canonical hash for `/api/v1/posts?id=b1c3e8ba` and registered it in the kernel map.
+- The updated XDP program is attached to `enp0s1` as the active driver hook.
+
+Run sequence:
+
+1. Rebuild the project with `cd /home/ubuntucplusplus/code/WaitLeader/build && make`.
+2. Remove any stale pin before reloading: `sudo rm -f /sys/fs/bpf/waitleader_xdp_m3`.
+3. Load the new XDP object: `sudo bpftool prog load /tmp/waitleader_xdp.o /sys/fs/bpf/waitleader_xdp_m3 type xdp`.
+4. Attach the pinned program: `sudo bpftool net attach xdp pinned /sys/fs/bpf/waitleader_xdp_m3 dev enp0s1`.
+5. Run the control plane: `sudo /home/ubuntucplusplus/code/WaitLeader/build/waitleader_ctrl`.
 
 ### 11.4 Milestone 4: DBWaller Core Engine Integration
 

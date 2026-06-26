@@ -1,6 +1,8 @@
 #ifndef WAITLEADER_MAPS_H
 #define WAITLEADER_MAPS_H
 
+#include <linux/types.h>
+
 struct leader_metadata {
     __u64 start_timestamp_ns;
     __u32 origin_pid;

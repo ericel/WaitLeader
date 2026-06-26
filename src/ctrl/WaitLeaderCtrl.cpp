@@ -3,6 +3,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 
 #include <bpf/bpf.h>
@@ -10,6 +11,19 @@
 #include <unistd.h>
 
 #include "../bpf/waitleader_maps.h"
+
+__u64 compute_fnv1a_hash(std::string_view uri)
+{
+    const __u64 FNV_OFFSET_BASIS = 14695981039346656037ULL;
+    const __u64 FNV_PRIME = 1099511628211ULL;
+
+    __u64 hash = FNV_OFFSET_BASIS;
+    for (char c : uri) {
+        hash ^= static_cast<unsigned char>(c);
+        hash *= FNV_PRIME;
+    }
+    return hash;
+}
 
 class WaitLeaderMapBridge {
 private:
@@ -72,17 +86,19 @@ int main()
     try {
         WaitLeaderMapBridge bridge(map_path);
 
-        __u64 simulated_api_key = 1337;
+        std::string target_endpoint = "/api/v1/posts?id=b1c3e8ba";
+        __u64 endpoint_hash = compute_fnv1a_hash(target_endpoint);
 
-        std::cout << "\n[1] Simulating Cache Miss. DBWaller elects Leader Thread...\n";
-        bridge.register_leader(simulated_api_key);
+        std::cout << "\n[1] Simulating Cache Miss for: " << target_endpoint << "\n";
+        std::cout << "    Computed Canonical Hash: " << endpoint_hash << "\n";
+        bridge.register_leader(endpoint_hash);
 
         std::cout << "[2] Leader is querying origin DB (Simulating 5s slow query)...\n";
         std::cout << "    --> Try spamming packets to port 8080 right now! Kernel will drop them.\n";
         std::this_thread::sleep_for(std::chrono::seconds(5));
 
         std::cout << "[3] Origin query complete! DBWaller RAM populated.\n";
-        bridge.release_leader(simulated_api_key);
+        bridge.release_leader(endpoint_hash);
     } catch (const std::exception &e) {
         std::cerr << e.what() << "\n";
         std::cerr << "Tip: Pin the map first with something like:\n";
@@ -92,4 +108,3 @@ int main()
 
     return 0;
 }
-
