@@ -24,3 +24,19 @@ pkg_check_modules(LIBBPF REQUIRED libbpf)
 add_executable(waitleader_ctrl src/ctrl/WaitLeaderCtrl.cpp)
 target_include_directories(waitleader_ctrl PRIVATE ${LIBBPF_INCLUDE_DIRS})
 target_link_libraries(waitleader_ctrl PRIVATE ${LIBBPF_LIBRARIES} elf z)
+
+add_executable(dbwaller_xdp_mock src/ctrl/MockDBWallerEngine.cpp)
+target_include_directories(dbwaller_xdp_mock PRIVATE ${LIBBPF_INCLUDE_DIRS})
+target_link_libraries(dbwaller_xdp_mock PRIVATE ${LIBBPF_LIBRARIES} elf z)
+
+add_executable(waitleader_observe src/ctrl/WaitLeaderObserve.cpp)
+target_include_directories(waitleader_observe PRIVATE ${LIBBPF_INCLUDE_DIRS})
+target_link_libraries(waitleader_observe PRIVATE ${LIBBPF_LIBRARIES} elf z)
+
+enable_testing()
+
+add_executable(test_memory_leak tests/test_memory_leak.cpp)
+target_include_directories(test_memory_leak PRIVATE ${LIBBPF_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/src/ctrl)
+target_link_libraries(test_memory_leak PRIVATE ${LIBBPF_LIBRARIES} elf z)
+
+add_test(NAME MemoryLeakValidation COMMAND test_memory_leak)

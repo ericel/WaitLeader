@@ -77,11 +77,15 @@ public:
     }
 };
 
-int main()
+int main(int argc, char **argv)
 {
     std::cout << "=== WaitLeader Control Plane Gateway (v1.0) ===\n";
 
     const char *map_path = "/sys/fs/bpf/waitleader_map";
+    int hold_seconds = 5;
+    if (argc > 1) {
+        hold_seconds = std::stoi(argv[1]);
+    }
 
     try {
         WaitLeaderMapBridge bridge(map_path);
@@ -93,9 +97,9 @@ int main()
         std::cout << "    Computed Canonical Hash: " << endpoint_hash << "\n";
         bridge.register_leader(endpoint_hash);
 
-        std::cout << "[2] Leader is querying origin DB (Simulating 5s slow query)...\n";
+        std::cout << "[2] Leader is querying origin DB (Simulating " << hold_seconds << "s slow query)...\n";
         std::cout << "    --> Try spamming packets to port 8080 right now! Kernel will drop them.\n";
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(std::chrono::seconds(hold_seconds));
 
         std::cout << "[3] Origin query complete! DBWaller RAM populated.\n";
         bridge.release_leader(endpoint_hash);

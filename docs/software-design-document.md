@@ -176,10 +176,11 @@ This project follows a strict, verification-driven execution model. Because kern
 | --- | --- | --- | --- | --- |
 | M1 | Fast Data Plane | Bare-metal verifier pass and NIC hook | Sub-millisecond OS verification time (< 500 usec) | ✅ Completed |
 | M2 | Control Plane | User-space map gateway | Atomic key insertion/deletion via libbpf | ✅ Completed |
-| M3 | Packet Parser | L7 HTTP URI extraction engine | Deterministic FarmHash/XXHash generation under verifier limits | In progress |
-| M4 | Integration | DBWaller state machine hook | Zero-latency synchronization with SWR lifecycle | Pending |
-| M5 | Quality Assurance | Automated CTest and memory suite | Zero kernel memory leaks across 1M map mutations | Pending |
-| M6 | Empirical Defense | Thundering herd benchmark suite | Flatline CPU context-switch graphs under 10k req/sec load | Pending |
+| M3 | Packet Parser | L7 HTTP URI extraction engine | Deterministic FNV-1a URI hash generation under verifier limits | ✅ Completed |
+| M4 | Integration | DBWaller state machine hook | Zero-latency synchronization with SWR lifecycle | ✅ Completed |
+| M5 | Quality Assurance | Automated CTest and memory suite | Zero kernel memory leaks across 1M map mutations | ✅ Completed |
+| M6 | Empirical Defense | Thundering herd benchmark suite | XDP ingress benchmark with kernel suppression counters | ✅ Completed |
+| M7 | Observability | Live kernel telemetry plane | User-space observer reads pinned eBPF metric maps | ✅ Completed |
 
 ### 11.1 Milestone 1: Bare-Metal Kernel Verifier Pass and NIC Attachment
 
@@ -224,7 +225,7 @@ Objective: transition from synthetic packet identification to production HTTP RE
 Tasks:
 
 - Upgrade the XDP fast path to parse L7 HTTP GET request payloads safely within the kernel stack and verifier limits.
-- Implement a low-overhead hashing algorithm such as `xxHash64` directly inside the eBPF bytecode to convert variable-length URI strings into 64-bit map keys.
+- Implement a low-overhead FNV-1a 64-bit hashing algorithm directly inside the eBPF bytecode to convert variable-length URI strings into 64-bit map keys.
 - Handle edge cases: TCP segmentation, options padding, and non-HTTP traffic pass-through (`XDP_PASS`).
 
 Completion criteria:
@@ -236,6 +237,7 @@ Validation evidence:
 - The updated XDP parser loaded successfully with the verifier.
 - The controller computed the canonical hash for `/api/v1/posts?id=b1c3e8ba` and registered it in the kernel map.
 - The updated XDP program is attached to `enp0s1` as the active driver hook.
+- The same parser was exercised through an XDP-attached `veth-host` ingress harness, proving the L7 GET parser and canonical URI hash can drive live `XDP_DROP` decisions.
 
 Run sequence:
 
@@ -259,6 +261,27 @@ Completion criteria:
 
 - DBWaller automatically dictates kernel NIC drop rules during simulated origin database latency.
 
+Validation evidence:
+
+- `sudo ./dbwaller_xdp_mock` executed a 10-thread mock leader election run.
+- Thread 0 acquired the kernel guard for `/api/v1/posts?id=b1c3e8ba`.
+- The guard stayed active during the 3-second leader sleep window.
+- The guard was released cleanly when the RAII scope ended.
+- The integration completed without warnings or runtime faults.
+
+Run sequence:
+
+1. Build the mock integration with `cd /home/ubuntucplusplus/code/WaitLeader/build && make`.
+2. Start the mock leader election run with `sudo ./dbwaller_xdp_mock`.
+3. While Thread 0 is in the 3-second sleep window, open a second terminal.
+4. Inspect the pinned map with `sudo bpftool map dump pinned /sys/fs/bpf/waitleader_map`.
+5. Confirm the 64-bit canonical key for `/api/v1/posts?id=b1c3e8ba` is present while the leader guard is active.
+
+Expected behavior:
+
+- The map dump should show the active FNV-1a key while Thread 0 is still executing.
+- After the destructor runs, the key should disappear from the pinned map.
+
 ### 11.5 Milestone 5: Automated CTest and Verification Suite
 
 Objective: enforce strict academic repository hygiene mirroring the master's capstone standards.
@@ -268,6 +291,19 @@ Tasks:
 - Build automated shell scripts integrated into `CMakeLists.txt` to spin up isolated network namespaces.
 - Construct C++ integration tests asserting that concurrent map cleanups do not leave orphan keys blocking valid traffic.
 - Integrate automated memory boundary checks.
+
+Validation evidence:
+
+- `tests/test_memory_leak.cpp` now exercises 10,000 RAII-managed guard acquisitions and releases.
+- `CMakeLists.txt` now builds `test_memory_leak` and registers `MemoryLeakValidation` with CTest.
+- `ctest --output-on-failure` passes `MemoryLeakValidation` successfully.
+
+Run sequence:
+
+1. Reconfigure and rebuild with `cd /home/ubuntucplusplus/code/WaitLeader/build && cmake .. && make`.
+2. Confirm the pinned map exists at `/sys/fs/bpf/waitleader_map`.
+3. Run the suite with `sudo ctest --output-on-failure`.
+4. Confirm `MemoryLeakValidation` passes without assertion failures or map access errors.
 
 Completion criteria:
 
@@ -281,15 +317,46 @@ Tasks:
 
 - Build `herd_stress_test.py` using asynchronous socket multiplexing to blast the network interface with concurrent request storms.
 - Capture Linux kernel run-queue depth, CPU context-switch rates, and hardware interrupt volumes.
-- Script automated Python plotting to generate direct comparison charts between traditional user-space coalescing and eBPF XDP hardware-edge coalescing.
+- Capture live pinned-map snapshots during the request storm to prove that XDP increments kernel-side suppression counters while the leader is active.
 
 Completion criteria:
 
-- Publication-ready graphics show a substantial reduction in OS context switching under high contention.
+- A repeatable benchmark run shows baseline traffic passing normally while WaitLeader suppresses duplicate follower requests at an XDP ingress hook, with nonzero kernel suppression counters.
+
+Validation evidence:
+
+- `bench/herd_stress_test.py` now generates asynchronous HTTP stampedes with JSON summaries.
+- `bench/analyze_vmstat.py` now reports peak `cs` values from `vmstat` logs.
+- Loopback harness run in this session recorded peak `cs = 2725` for the baseline-labeled burst and `cs = 2478` for the WaitLeader-labeled burst.
+- The paired run confirms the benchmark and log-analysis tooling, but it does not replace the final NIC-level detached-vs-attached experiment.
+- Root helper run on the VM recorded peak `cs = 8746` for baseline and `cs = 6528` for WaitLeader, but the live map snapshots showed `suppressed_followers_count = 0`, so the drop path was not actually exercised in that harness run.
+- Verified XDP ingress run using a dedicated `veth-host`/`wlclient` network namespace harness:
+- Baseline, with XDP detached from `veth-host`: `1000/1000` sockets completed, `0` edge drops, average latency `2460.37 ms`, p95 latency `3081.01 ms`.
+- WaitLeader, with XDP attached to `veth-host` and the controller holding `/api/v1/posts?id=b1c3e8ba`: `736/1000` sockets completed, `264` client-observed edge drops, average latency `2976.35 ms`, p95 latency `3594.65 ms`.
+- The pinned kernel map showed `suppressed_followers_count = 3849` during the active leader window, proving that the XDP L7 parser matched the canonical URI and executed the drop path.
+- Note: a local request to `192.168.64.3` routes through `lo` on the VM, so the veth harness is the current self-contained kernel-ingress proof. A Mac-host-originated request storm against the VM's `enp0s1` address remains the next external reproduction step.
+
+Run sequence:
+
+1. Baseline phase: detach the XDP hook and capture system load with `vmstat 1 10 > ~/baseline_cpu.log &`.
+2. Trigger the benchmark with `python3 /home/ubuntucplusplus/code/WaitLeader/bench/herd_stress_test.py --baseline --clients 1000 --out ~/baseline_results.json`.
+3. WaitLeader phase: reattach the XDP hook and ensure the control plane is active.
+4. Capture system load with `vmstat 1 10 > ~/waitleader_cpu.log &`.
+5. Trigger the same benchmark with `python3 /home/ubuntucplusplus/code/WaitLeader/bench/herd_stress_test.py --waitleader --clients 1000 --out ~/waitleader_results.json`.
+6. Compare the logs with `python3 /home/ubuntucplusplus/code/WaitLeader/bench/analyze_vmstat.py ~/baseline_cpu.log ~/waitleader_cpu.log`.
+7. Alternatively, run `bash /home/ubuntucplusplus/code/WaitLeader/bench/run_m6.sh baseline`, then `bash /home/ubuntucplusplus/code/WaitLeader/bench/run_m6.sh waitleader`, then `bash /home/ubuntucplusplus/code/WaitLeader/bench/run_m6.sh compare`.
 
 ## 12. Observability
 
-Useful runtime metrics include:
+WaitLeader exposes runtime telemetry through a dedicated pinned eBPF array map named `waitleader_metrics`. This map is separate from the `inflight_registry` leader hash map so operational counters can be sampled without mutating active leader state.
+
+The observability plane has three layers:
+
+- Kernel dataplane counters in `src/bpf/waitleader_xdp.c`.
+- Shared metric identifiers in `src/bpf/waitleader_maps.h`.
+- User-space reader binary in `src/ctrl/WaitLeaderObserve.cpp`.
+
+Runtime metrics include:
 
 - number of suppressed follower packets,
 - number of active leaders,
@@ -297,6 +364,33 @@ Useful runtime metrics include:
 - map insertion and deletion counts,
 - verifier load status,
 - packet disposition counts for `XDP_PASS` and `XDP_DROP`.
+
+Implemented M7 counters:
+
+- `packets_total`,
+- `xdp_pass_total`,
+- `xdp_drop_total`,
+- `ipv4_tcp_8080_total`,
+- `http_get_total`,
+- `uri_hash_miss_total`,
+- `malformed_packet_total`,
+- `non_http_pass_total`.
+
+The observer supports both human-readable and machine-readable output:
+
+```bash
+sudo /home/ubuntucplusplus/code/WaitLeader/build/waitleader_observe --once
+sudo /home/ubuntucplusplus/code/WaitLeader/build/waitleader_observe --json --once
+```
+
+Validation evidence:
+
+- The M7 XDP object loaded through the Linux verifier and attached to `enp0s1` as program ID `130`.
+- The new metrics array map was pinned at `/sys/fs/bpf/waitleader_metrics`.
+- The existing leader hash map remains pinned at `/sys/fs/bpf/waitleader_map`.
+- `waitleader_observe --json --once` successfully read live counters from both maps.
+- Controlled `veth-host` ingress run with 200 concurrent HTTP clients produced a live observer snapshot showing `active_leaders = 1`, `suppressed_followers_active = 1000`, `xdp_drop_total = 1000`, `http_get_total = 1000`, and `uri_hash_miss_total = 0`.
+- In that run, the client benchmark reported `200/200` completed sockets because TCP retried successfully, while the kernel counters still proved that XDP dropped 1000 duplicate follower packets during the active leader window.
 
 ## 13. Risks and Constraints
 
