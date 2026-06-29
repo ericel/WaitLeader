@@ -1,0 +1,17 @@
+{
+  "boundary": "Live SK_MSG_DROP requires attaching sockets through sockmap/kTLS; this artifact validates verifier acceptance and user-space semantic policy mutation.",
+  "milestone": "M10 Semantic-Aware Controller",
+  "strategy": "Hybrid offload: user space decodes HTTP/2/HPACK semantics; SK_MSG enforces blind conn_id/stream_id policy.",
+  "validated": {
+    "active_h2_stream_policies_after_release": 0,
+    "active_h2_stream_policies_during_hold": 1,
+    "metrics_map": "/sys/fs/bpf/waitleader_h2_metrics",
+    "policy_map": "/sys/fs/bpf/waitleader_h2_streams",
+    "sample_conn_id": 3221344269,
+    "sample_conn_id_hex": "0xC001D00D",
+    "sample_stream_id": 7,
+    "sk_msg_jited_bytes": 10648,
+    "sk_msg_program_id": 124,
+    "uri_map": "/sys/fs/bpf/waitleader_h2_uri_map"
+  }
+}

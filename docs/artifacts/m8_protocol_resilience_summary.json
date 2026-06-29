@@ -1,0 +1,76 @@
+{
+  "cadence_ms": 250,
+  "deltas": {
+    "fragmented_pass_total": 8,
+    "http_get_total": 0,
+    "ipv4_tcp_8080_total": 30,
+    "ipv6_tcp_8080_total": 30,
+    "malformed_packet_total": 60,
+    "non_http_pass_total": 3,
+    "xdp_drop_total": 0,
+    "xdp_pass_total": 71
+  },
+  "first": {
+    "active_leaders": 0,
+    "fragmented_pass_total": 0,
+    "http_get_total": 0,
+    "ipv4_tcp_8080_total": 0,
+    "ipv6_tcp_8080_total": 0,
+    "malformed_packet_total": 0,
+    "non_http_pass_total": 8,
+    "packets_total": 8,
+    "retransmission_drop_total": 0,
+    "suppressed_followers_active": 0,
+    "uri_hash_miss_total": 0,
+    "xdp_drop_total": 0,
+    "xdp_pass_total": 8
+  },
+  "fragment_ping_tail": [
+    "",
+    "--- 10.200.1.1 ping statistics ---",
+    "4 packets transmitted, 4 received, 0% packet loss, time 3110ms",
+    "rtt min/avg/max/mdev = 0.113/0.309/0.573/0.185 ms"
+  ],
+  "ipv4_benchmark": {
+    "avg_latency_ms": null,
+    "completed": 0,
+    "concurrent_clients": 30,
+    "dropped": 30,
+    "duration_s": 0.0020342159998563147,
+    "failed": 0,
+    "host": "10.200.1.1",
+    "max_latency_ms": null,
+    "p95_latency_ms": null,
+    "phase": "waitleader",
+    "port": 8080
+  },
+  "ipv6_benchmark": {
+    "avg_latency_ms": null,
+    "completed": 0,
+    "concurrent_clients": 30,
+    "dropped": 30,
+    "duration_s": 0.0024800090000098862,
+    "failed": 0,
+    "host": "fd00:1::1",
+    "max_latency_ms": null,
+    "p95_latency_ms": null,
+    "phase": "waitleader",
+    "port": 8080
+  },
+  "last": {
+    "active_leaders": 0,
+    "fragmented_pass_total": 8,
+    "http_get_total": 0,
+    "ipv4_tcp_8080_total": 30,
+    "ipv6_tcp_8080_total": 30,
+    "malformed_packet_total": 60,
+    "non_http_pass_total": 11,
+    "packets_total": 79,
+    "retransmission_drop_total": 0,
+    "suppressed_followers_active": 0,
+    "uri_hash_miss_total": 0,
+    "xdp_drop_total": 0,
+    "xdp_pass_total": 79
+  },
+  "samples": 30
+}

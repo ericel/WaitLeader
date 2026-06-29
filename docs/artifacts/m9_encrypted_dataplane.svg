@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="760" viewBox="0 0 1300 760">
+  <style>
+    .bg { fill: #fbfaf7; }
+    .title { font: 700 34px Georgia, serif; fill: #202020; }
+    .subtitle { font: 18px Georgia, serif; fill: #555; }
+    .box { fill: #fff; stroke: #d8d0c2; stroke-width: 2; }
+    .xdp { fill: #fff4e5; stroke: #b45309; stroke-width: 2; }
+    .kernel { fill: #edf7ee; stroke: #0b7a28; stroke-width: 2; }
+    .user { fill: #eef4ff; stroke: #1f66d1; stroke-width: 2; }
+    .text { font: 18px Georgia, serif; fill: #222; }
+    .small { font: 15px Georgia, serif; fill: #555; }
+    .metric { font: 700 19px Georgia, serif; fill: #111; }
+    .arrow { stroke: #333; stroke-width: 3; marker-end: url(#arrowhead); fill: none; }
+  </style>
+  <defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#333" /></marker></defs>
+  <rect class="bg" width="100%" height="100%" />
+  <text x="70" y="58" class="title">WaitLeader M9: Encrypted Data Plane Boundary</text>
+  <text x="70" y="92" class="subtitle">TLS ciphertext is opaque at XDP; SK_MSG provides a verifier-accepted post-decryption hook.</text>
+
+  <rect x="70" y="145" width="250" height="135" rx="18" class="box" />
+  <text x="95" y="185" class="metric">NIC / XDP</text>
+  <text x="95" y="222" class="text">Layer 2 fast path</text>
+  <text x="95" y="252" class="text">Payload is TLS ciphertext</text>
+
+  <rect x="400" y="145" width="250" height="135" rx="18" class="xdp" />
+  <text x="425" y="185" class="metric">Cannot Parse URI</text>
+  <text x="425" y="222" class="text">No GET text visible</text>
+  <text x="425" y="252" class="text">No HTTP/2 :path visible</text>
+
+  <rect x="730" y="145" width="250" height="135" rx="18" class="kernel" />
+  <text x="755" y="185" class="metric">kTLS / Socket Layer</text>
+  <text x="755" y="222" class="text">Plaintext becomes visible</text>
+  <text x="755" y="252" class="text">SK_MSG verdict point</text>
+
+  <rect x="1060" y="145" width="170" height="135" rx="18" class="user" />
+  <text x="1085" y="185" class="metric">DBWaller</text>
+  <text x="1085" y="222" class="text">Receives only</text>
+  <text x="1085" y="252" class="text">SK_PASS data</text>
+
+  <path d="M320 212 C350 212 370 212 400 212" class="arrow" />
+  <path d="M650 212 C680 212 700 212 730 212" class="arrow" />
+  <path d="M980 212 C1010 212 1030 212 1060 212" class="arrow" />
+
+  <rect x="140" y="365" width="1020" height="170" rx="18" class="kernel" />
+  <text x="175" y="405" class="metric">Verifier Evidence</text>
+  <text x="175" y="445" class="text">Program type: <tspan class="metric">BPF_PROG_TYPE_SK_MSG</tspan></text>
+  <text x="175" y="480" class="text">Pinned path: <tspan class="metric">/sys/fs/bpf/waitleader_sk_msg_m9</tspan></text>
+  <text x="175" y="515" class="text">Program ID: <tspan class="metric">117</tspan> | JITed bytes: <tspan class="metric">9880</tspan> | xlated bytes: <tspan class="metric">14744</tspan></text>
+
+  <rect x="140" y="580" width="1020" height="90" rx="18" class="xdp" />
+  <text x="175" y="620" class="metric">Research Boundary</text>
+  <text x="175" y="652" class="text">This artifact proves verifier acceptance and hook placement. Live TLS verdict enforcement requires sockmap/kTLS socket attachment.</text>
+</svg>

@@ -19,6 +19,9 @@ WaitLeader is a kernel-assisted request coalescing prototype built around eBPF a
 - `✅ M5` CTest memory suite validated
 - `✅ M6` Empirical study: XDP ingress benchmark validated with kernel suppression counters
 - `✅ M7` Observability: live pinned-map telemetry exposed through `waitleader_observe`
+- `✅ M8` Protocol Resilience: IPv6 branch, IPv4 fragmentation pass-through, and TCP retransmission model implemented
+- `✅ M9` Encrypted Data Plane: verifier-accepted SK_MSG hook for post-decryption plaintext inspection
+- `✅ M10` Semantic-Aware Controller: HTTP/2 user-space semantics with kernel stream-policy enforcement
 
 ## Build
 
@@ -31,8 +34,10 @@ cmake --build build
 This builds:
 
 - `build/waitleader_xdp.o`
+- `build/waitleader_sk_msg.o`
 - `build/waitleader_ctrl`
 - `build/waitleader_observe`
+- `build/waitleader_h2_policy`
 
 ## Run
 
@@ -162,8 +167,24 @@ Available counters include:
 - `uri_hash_miss_total`
 - `malformed_packet_total`
 - `non_http_pass_total`
+- `ipv6_tcp_8080_total`
+- `fragmented_pass_total`
+- `retransmission_drop_total`
+- `sk_msg_total`
+- `sk_msg_pass_total`
+- `sk_msg_drop_total`
+- `tls_http1_get_total`
+- `tls_http2_preface_total`
+- `tls_http2_unsupported_total`
+- `tls_http2_headers_total`
+- `tls_http2_path_total`
+- `tls_http2_hpack_unsupported_total`
+- `h2_stream_policy_hit_total`
+- `h2_stream_policy_drop_total`
 - `active_leaders`
 - `suppressed_followers_active`
+- `active_h2_stream_policies`
+- `suppressed_h2_stream_followers_active`
 
 Latest observability validation:
 
@@ -171,6 +192,106 @@ Latest observability validation:
 - Kernel dataplane reported `xdp_drop_total = 1000`.
 - Kernel dataplane reported `http_get_total = 1000`.
 - Active leader record reported `suppressed_followers_active = 1000`.
+
+Defense artifacts:
+
+- Raw observer capture: `docs/artifacts/m7_defense_metrics.jsonl`
+- Figure 4 SVG: `docs/artifacts/m7_xdp_pass_vs_drop.svg`
+- Plot generator: `bench/plot_m7_metrics.py`
+
+### 9. Milestone 8 protocol resilience
+
+The XDP fast path now supports production variability without trying to do unsafe stream reconstruction in kernel space:
+
+- IPv4 and IPv6 branch separately at Layer 3.
+- IPv4 fragments pass immediately to DBWaller user space.
+- IPv6 TCP traffic is parsed when `nexthdr == IPPROTO_TCP`.
+- IPv6 extension-header chains pass to user space.
+- XDP drops rely on the client TCP retransmission timeout as the external waiting queue.
+
+Latest M8 validation:
+
+- M8 bytecode loaded through the Linux verifier.
+- Active `enp0s1` XDP program ID: `74`.
+- Dual-stack veth harness observed `ipv4_tcp_8080_total = 60`.
+- Dual-stack veth harness observed `ipv6_tcp_8080_total = 60`.
+- Forced oversized IPv4 packet observed `fragmented_pass_total = 2`.
+
+Defense artifacts:
+
+- Raw observer capture: `docs/artifacts/m8_protocol_resilience_metrics.jsonl`
+- Summary JSON: `docs/artifacts/m8_protocol_resilience_summary.json`
+- Figure 5 SVG: `docs/artifacts/m8_protocol_resilience.svg`
+- Plot generator: `bench/plot_m8_resilience.py`
+
+### 10. Milestone 9 encrypted data plane
+
+XDP cannot inspect TLS ciphertext, so M9 adds a separate SK_MSG eBPF program for post-decryption socket-message inspection.
+
+Build and verifier-load the SK_MSG bytecode:
+
+```bash
+cd /home/ubuntucplusplus/code/WaitLeader
+cmake --build build --target sk_msg_bytecode
+sudo rm -f /sys/fs/bpf/waitleader_sk_msg_m9
+sudo bpftool prog load build/waitleader_sk_msg.o /sys/fs/bpf/waitleader_sk_msg_m9 type sk_msg
+sudo bpftool prog show pinned /sys/fs/bpf/waitleader_sk_msg_m9
+```
+
+Latest M9 validation:
+
+- `waitleader_sk_msg.o` compiled successfully.
+- Kernel verifier accepted `BPF_PROG_TYPE_SK_MSG`.
+- Initial loaded SK_MSG program ID: `104`.
+- HTTP/2 bounded-HEADERS SK_MSG program ID: `117`.
+- Latest JITed size: `9880B`.
+
+Defense artifacts:
+
+- Verifier summary JSON: `docs/artifacts/m9_sk_msg_verifier_summary.json`
+- Figure 6 SVG: `docs/artifacts/m9_encrypted_dataplane.svg`
+
+Current boundary:
+
+- Decrypted HTTP/1.1-style `GET` text can be hashed and suppressed with `SK_DROP`.
+- HTTP/2 HEADERS frames are supported when `:method GET` is static-indexed and `:path` is either static-indexed `/` or a non-Huffman literal using the static indexed `:path` name.
+- HTTP/2 Huffman strings, dynamic-table references, PADDED/PRIORITY HEADERS, and CONTINUATION frames pass to user space until broader HPACK support or a user-space canonical-key assist is implemented.
+
+### 11. Milestone 10 semantic-aware controller
+
+M10 implements the hybrid-offload strategy for full HTTP/2 correctness:
+
+- DBWaller/nghttp2 decodes HPACK and computes the semantic cache key in user space.
+- User space installs a compact `{conn_id, stream_id}` policy into `/sys/fs/bpf/waitleader_h2_streams`.
+- SK_MSG checks the stream policy map and can return `SK_DROP` without decoding HPACK.
+
+Register a sample semantic policy:
+
+```bash
+sudo /home/ubuntucplusplus/code/WaitLeader/build/waitleader_h2_policy 0xC001D00D 7 3
+```
+
+Observe stream policies:
+
+```bash
+sudo /home/ubuntucplusplus/code/WaitLeader/build/waitleader_observe --json --once \
+  --metrics-map /sys/fs/bpf/waitleader_h2_metrics \
+  --leader-map /sys/fs/bpf/waitleader_h2_uri_map \
+  --stream-map /sys/fs/bpf/waitleader_h2_streams
+```
+
+Latest M10 validation:
+
+- Hybrid SK_MSG verifier load program ID: `124`.
+- JITed size: `10648B`.
+- `waitleader_h2_policy` inserted `{conn_id = 0xC001D00D, stream_id = 7}`.
+- Observer reported `active_h2_stream_policies = 1` during the hold window.
+- Observer reported `active_h2_stream_policies = 0` after release.
+
+Defense artifacts:
+
+- Summary JSON: `docs/artifacts/m10_semantic_policy_summary.json`
+- Figure 7 SVG: `docs/artifacts/m10_hybrid_offload.svg`
 
 ## Notes
 

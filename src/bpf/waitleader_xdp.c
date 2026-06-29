@@ -3,6 +3,7 @@
 #include <bpf/bpf_endian.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <linux/in.h>
 #include <linux/tcp.h>
 
@@ -11,6 +12,8 @@
 #define FNV_OFFSET_BASIS_64 14695981039346656037ULL
 #define FNV_PRIME_64        1099511628211ULL
 #define MAX_URI_LENGTH      64
+#define IPV4_MORE_FRAGMENTS 0x2000
+#define IPV4_FRAGMENT_OFFSET_MASK 0x1fff
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -40,42 +43,20 @@ static __always_inline int pass_with_metric(__u32 metric)
     return XDP_PASS;
 }
 
-SEC("xdp")
-int waitleader_stampede_guard(struct xdp_md *ctx)
+static __always_inline int inspect_tcp_http(struct tcphdr *tcph, void *data_end, __u32 tcp_8080_metric)
 {
-    void *data = (void *)(long)ctx->data;
-    void *data_end = (void *)(long)ctx->data_end;
-
-    increment_metric(WAITLEADER_METRIC_PACKETS_TOTAL);
-
-    struct ethhdr *eth = data;
-    if ((void *)(eth + 1) > data_end)
-        return pass_with_metric(WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL);
-
-    if (eth->h_proto != bpf_htons(ETH_P_IP))
-        return pass_with_metric(WAITLEADER_METRIC_NON_HTTP_PASS_TOTAL);
-
-    struct iphdr *iph = (void *)(eth + 1);
-    if ((void *)(iph + 1) > data_end)
-        return pass_with_metric(WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL);
-
-    if (iph->protocol != IPPROTO_TCP)
-        return pass_with_metric(WAITLEADER_METRIC_NON_HTTP_PASS_TOTAL);
-
-    __u32 ip_header_len = iph->ihl * 4;
-    if (ip_header_len < sizeof(*iph))
-        return pass_with_metric(WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL);
-
-    struct tcphdr *tcph = (void *)iph + ip_header_len;
     if ((void *)(tcph + 1) > data_end)
         return pass_with_metric(WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL);
 
     if (tcph->dest != bpf_htons(8080))
         return pass_with_metric(WAITLEADER_METRIC_NON_HTTP_PASS_TOTAL);
 
-    increment_metric(WAITLEADER_METRIC_IPV4_TCP_8080_TOTAL);
+    increment_metric(tcp_8080_metric);
 
     __u32 tcp_header_len = tcph->doff * 4;
+    if (tcp_header_len < sizeof(*tcph))
+        return pass_with_metric(WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL);
+
     unsigned char *payload = (unsigned char *)tcph + tcp_header_len;
 
     if ((void *)(payload + 5) > data_end)
@@ -107,11 +88,59 @@ int waitleader_stampede_guard(struct xdp_md *ctx)
 
     if (leader_active) {
         leader_active->suppressed_followers_count += 1;
+        increment_metric(WAITLEADER_METRIC_RETRANSMISSION_DROP_TOTAL);
         increment_metric(WAITLEADER_METRIC_XDP_DROP_TOTAL);
         return XDP_DROP;
     }
 
     return pass_with_metric(WAITLEADER_METRIC_URI_HASH_MISS_TOTAL);
+}
+
+SEC("xdp")
+int waitleader_stampede_guard(struct xdp_md *ctx)
+{
+    void *data = (void *)(long)ctx->data;
+    void *data_end = (void *)(long)ctx->data_end;
+
+    increment_metric(WAITLEADER_METRIC_PACKETS_TOTAL);
+
+    struct ethhdr *eth = data;
+    if ((void *)(eth + 1) > data_end)
+        return pass_with_metric(WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL);
+
+    if (eth->h_proto == bpf_htons(ETH_P_IP)) {
+        struct iphdr *iph = (void *)(eth + 1);
+        if ((void *)(iph + 1) > data_end)
+            return pass_with_metric(WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL);
+
+        __u16 frag_off = bpf_ntohs(iph->frag_off);
+        if (frag_off & (IPV4_MORE_FRAGMENTS | IPV4_FRAGMENT_OFFSET_MASK))
+            return pass_with_metric(WAITLEADER_METRIC_FRAGMENTED_PASS_TOTAL);
+
+        if (iph->protocol != IPPROTO_TCP)
+            return pass_with_metric(WAITLEADER_METRIC_NON_HTTP_PASS_TOTAL);
+
+        __u32 ip_header_len = iph->ihl * 4;
+        if (ip_header_len < sizeof(*iph))
+            return pass_with_metric(WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL);
+
+        struct tcphdr *tcph = (void *)iph + ip_header_len;
+        return inspect_tcp_http(tcph, data_end, WAITLEADER_METRIC_IPV4_TCP_8080_TOTAL);
+    }
+
+    if (eth->h_proto == bpf_htons(ETH_P_IPV6)) {
+        struct ipv6hdr *ip6h = (void *)(eth + 1);
+        if ((void *)(ip6h + 1) > data_end)
+            return pass_with_metric(WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL);
+
+        if (ip6h->nexthdr != IPPROTO_TCP)
+            return pass_with_metric(WAITLEADER_METRIC_NON_HTTP_PASS_TOTAL);
+
+        struct tcphdr *tcph = (void *)(ip6h + 1);
+        return inspect_tcp_http(tcph, data_end, WAITLEADER_METRIC_IPV6_TCP_8080_TOTAL);
+    }
+
+    return pass_with_metric(WAITLEADER_METRIC_NON_HTTP_PASS_TOTAL);
 }
 
 char _license[] SEC("license") = "GPL";

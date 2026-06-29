@@ -1,0 +1,34 @@
+{
+  "boundary": "This artifact proves verifier acceptance and program shape. Live TLS verdict enforcement still requires sockmap/kTLS socket attachment.",
+  "build_target": "sk_msg_bytecode",
+  "bytecode": "build/waitleader_sk_msg.o",
+  "claim": "Linux verifier accepted a BPF_PROG_TYPE_SK_MSG hook for post-decryption plaintext inspection.",
+  "counters": [
+    "sk_msg_total",
+    "sk_msg_pass_total",
+    "sk_msg_drop_total",
+    "tls_http1_get_total",
+    "tls_http2_preface_total",
+    "tls_http2_unsupported_total",
+    "tls_http2_headers_total",
+    "tls_http2_path_total",
+    "tls_http2_hpack_unsupported_total"
+  ],
+  "milestone": "M9 Encrypted Data Plane",
+  "program": {
+    "bytes_jited": 9880,
+    "bytes_memlock": 16384,
+    "bytes_xlated": 14744,
+    "gpl_compatible": true,
+    "id": 117,
+    "map_ids": [
+      42,
+      41
+    ],
+    "name": "waitleader_tls_plaintext_guard",
+    "pinned_path": "/sys/fs/bpf/waitleader_sk_msg_m9",
+    "tag": "c7cf08256d552d9d",
+    "type": "sk_msg"
+  },
+  "source": "src/bpf/waitleader_sk_msg.c"
+}

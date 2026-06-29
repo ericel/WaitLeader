@@ -181,6 +181,9 @@ This project follows a strict, verification-driven execution model. Because kern
 | M5 | Quality Assurance | Automated CTest and memory suite | Zero kernel memory leaks across 1M map mutations | ✅ Completed |
 | M6 | Empirical Defense | Thundering herd benchmark suite | XDP ingress benchmark with kernel suppression counters | ✅ Completed |
 | M7 | Observability | Live kernel telemetry plane | User-space observer reads pinned eBPF metric maps | ✅ Completed |
+| M8 | Protocol Resilience | IPv6, fragmentation, and retransmission-safe behavior | Verifier-accepted dual-stack parser with graceful degradation | ✅ Completed |
+| M9 | Encrypted Data Plane | TLS-aware socket-message hook | Verifier-accepted `BPF_PROG_TYPE_SK_MSG` plaintext gate | ✅ Completed |
+| M10 | Semantic-Aware Controller | HTTP/2 hybrid offload policy map | User-space HPACK semantics with kernel stream-policy enforcement | ✅ Completed |
 
 ### 11.1 Milestone 1: Bare-Metal Kernel Verifier Pass and NIC Attachment
 
@@ -392,20 +395,236 @@ Validation evidence:
 - Controlled `veth-host` ingress run with 200 concurrent HTTP clients produced a live observer snapshot showing `active_leaders = 1`, `suppressed_followers_active = 1000`, `xdp_drop_total = 1000`, `http_get_total = 1000`, and `uri_hash_miss_total = 0`.
 - In that run, the client benchmark reported `200/200` completed sockets because TCP retried successfully, while the kernel counters still proved that XDP dropped 1000 duplicate follower packets during the active leader window.
 
-## 13. Risks and Constraints
+Defense artifacts:
+
+- Raw 10-second observer capture: `docs/artifacts/m7_defense_metrics.jsonl`.
+- Figure 4 vector chart: `docs/artifacts/m7_xdp_pass_vs_drop.svg`.
+- Plot generator: `bench/plot_m7_metrics.py`.
+- Sustained stampede capture produced 40 observer samples at 250 ms cadence.
+- Figure 4 plots cumulative counter deltas: `xdp_pass_total = 1375`, `xdp_drop_total = 973`, and `http_get_total = 973`.
+
+## 13. Protocol Resilience
+
+Milestone 8 hardens WaitLeader for production packet variability without violating XDP verifier constraints.
+
+### 13.1 IPv6 Support
+
+The XDP program now branches at Layer 3:
+
+- `ETH_P_IP` enters the IPv4 parser.
+- `ETH_P_IPV6` enters the IPv6 parser.
+- Unsupported Ethernet protocols degrade to `XDP_PASS`.
+
+The IPv6 path currently supports the verifier-friendly common case where `ipv6hdr.nexthdr == IPPROTO_TCP`. IPv6 extension-header chains are intentionally passed to user space rather than parsed in kernel space. This keeps the fast path bounded and avoids complex extension traversal in XDP.
+
+### 13.2 Fragmentation Strategy
+
+WaitLeader does not attempt TCP stream reassembly in XDP. For IPv4, the program checks `frag_off` before parsing TCP:
+
+- packets with the more-fragments bit set pass immediately,
+- packets with a nonzero fragment offset pass immediately,
+- complete non-fragmented packets continue into the TCP/HTTP parser.
+
+This is deliberate graceful degradation. Fragmented or partially visible HTTP requests fall back to DBWaller's user-space single-flight logic, where full stream state is available.
+
+### 13.3 Retransmission Model
+
+When WaitLeader returns `XDP_DROP`, it does not allocate server-side waiting memory. Instead, the client TCP stack naturally applies retransmission timeout backoff and retries later. This makes the client RTO the externalized waiting queue:
+
+- server RAM does not grow with follower count,
+- duplicate request pressure is reflected as `xdp_drop_total`,
+- per-leader pressure is reflected as `suppressed_followers_count`,
+- eventual retry is delegated to existing TCP behavior.
+
+This strategy is safe only for idempotent request classes currently scoped to HTTP `GET`.
+
+### 13.4 M8 Validation Evidence
+
+- The M8 XDP object compiled and loaded through the Linux verifier.
+- The active M8 program attached to `enp0s1` as XDP program ID `74`.
+- The observer exports new resilience counters: `ipv6_tcp_8080_total`, `fragmented_pass_total`, and `retransmission_drop_total`.
+- A dual-stack `veth-host`/`wlclient` harness observed `ipv4_tcp_8080_total = 60` and `ipv6_tcp_8080_total = 60`, proving both L3 branches classify TCP/8080 traffic.
+- A forced oversized IPv4 ping generated fragments and moved `fragmented_pass_total = 2`, proving graceful pass-through for fragmented packets.
+- The sustained M7 ingress run remains the strongest HTTP payload proof, with `xdp_drop_total = 973`, `http_get_total = 973`, and `suppressed_followers_active = 973`.
+
+Defense artifacts:
+
+- Raw M8 observer capture: `docs/artifacts/m8_protocol_resilience_metrics.jsonl`.
+- Machine-readable M8 summary: `docs/artifacts/m8_protocol_resilience_summary.json`.
+- Figure 5 vector chart: `docs/artifacts/m8_protocol_resilience.svg`.
+- Plot generator: `bench/plot_m8_resilience.py`.
+- Artifact capture produced 30 observer samples at 250 ms cadence.
+- Figure 5 plots cumulative counter deltas: `ipv4_tcp_8080_total = 30`, `ipv6_tcp_8080_total = 30`, `fragmented_pass_total = 8`, and `xdp_pass_total = 71`.
+
+## 14. Encrypted Data Plane
+
+Milestone 9 introduces a post-decryption hook for HTTPS deployments. XDP cannot inspect TLS ciphertext at the NIC edge, so WaitLeader adds a second eBPF program type for traffic that has already been decrypted inside the kernel or socket layer.
+
+### 14.1 kTLS and SK_MSG Strategy
+
+The encrypted data-plane design uses `BPF_PROG_TYPE_SK_MSG`:
+
+- XDP remains the fastest path for cleartext HTTP traffic.
+- For TLS-enabled sockets, the SK_MSG hook runs after the socket message is visible as plaintext to kernel socket processing.
+- The SK_MSG program reuses the same `inflight_registry` leader map shape and FNV-1a URI hash contract.
+- The verdict changes from `XDP_PASS`/`XDP_DROP` to `SK_PASS`/`SK_DROP`.
+
+This gives WaitLeader two deployment modes:
+
+- edge/NIC suppression for cleartext or internally terminated traffic,
+- socket-message suppression for decrypted TLS streams.
+
+### 14.2 HTTP/1.1 Plaintext Handling
+
+The first SK_MSG implementation supports decrypted HTTP/1.1-style request text:
+
+- detect `GET `,
+- hash the URI bytes with FNV-1a,
+- look up the active leader key,
+- return `SK_DROP` for duplicate followers,
+- return `SK_PASS` for cache misses or unsupported payloads.
+
+This mirrors the XDP request-key contract while operating later in the stack.
+
+### 14.3 HTTP/2 Support Boundary
+
+HTTP/2 is not text shaped like `GET /api/posts`. Its request path is carried in binary HEADERS frames and HPACK-compressed pseudo-headers such as `:path`. A safe eBPF implementation cannot pretend that ciphertext decryption alone makes HTTP/2 trivial.
+
+Current M9 behavior:
+
+- detect the HTTP/2 connection preface,
+- increment HTTP/2 observability counters,
+- parse verifier-bounded HEADERS frames when the first HPACK field is static-indexed `:method GET`,
+- extract `:path` when encoded as either static-indexed `/` or a non-Huffman literal value using the static indexed `:path` name,
+- hash the extracted path with the same FNV-1a canonical key contract,
+- return `SK_DROP` when the extracted path matches an active leader,
+- pass unsupported HTTP/2 encodings to user space for DBWaller coalescing.
+
+Unsupported HTTP/2 cases:
+
+- HPACK Huffman strings,
+- HPACK dynamic-table references,
+- HEADERS frames with PADDED or PRIORITY flags,
+- CONTINUATION frames,
+- multi-frame header blocks.
+
+These cases require either a broader bounded HPACK decoder or a user-space/kTLS assist that registers canonical `:path` keys before the SK_MSG verdict point.
+
+### 14.4 M9 Observability Counters
+
+M9 adds these counters:
+
+- `sk_msg_total`,
+- `sk_msg_pass_total`,
+- `sk_msg_drop_total`,
+- `tls_http1_get_total`,
+- `tls_http2_preface_total`,
+- `tls_http2_unsupported_total`,
+- `tls_http2_headers_total`,
+- `tls_http2_path_total`,
+- `tls_http2_hpack_unsupported_total`.
+
+### 14.5 M9 Validation Evidence
+
+- `src/bpf/waitleader_sk_msg.c` implements the SK_MSG plaintext gate.
+- `CMakeLists.txt` builds `waitleader_sk_msg.o` through the `sk_msg_bytecode` target.
+- The Linux verifier accepted the SK_MSG bytecode with `bpftool prog load ... type sk_msg`.
+- The loaded M9 program was pinned at `/sys/fs/bpf/waitleader_sk_msg_m9`.
+- The initial SK_MSG verifier load produced program ID `104`, with JITed size `6968B`.
+- The HTTP/2 bounded-HEADERS implementation was accepted by the verifier as program ID `117`, with JITed size `9880B`.
+
+Defense artifacts:
+
+- M9 verifier summary JSON: `docs/artifacts/m9_sk_msg_verifier_summary.json`.
+- Figure 6 vector chart: `docs/artifacts/m9_encrypted_dataplane.svg`.
+- The artifact records `BPF_PROG_TYPE_SK_MSG`, pinned path `/sys/fs/bpf/waitleader_sk_msg_m9`, program ID `117`, JITed size `9880B`, and xlated size `14744B`.
+
+## 15. Semantic-Aware Controller
+
+Milestone 10 resolves the full HTTP/2/HPACK complexity problem through separation of concerns. WaitLeader does not attempt to make eBPF a complete HTTP/2 implementation. Instead, DBWaller performs semantic decoding in user space and installs compact stream policies into the kernel.
+
+### 15.1 Hybrid-Offload Strategy
+
+The architecture splits responsibility:
+
+- User space decodes TLS, HTTP/2 frames, HPACK dynamic tables, Huffman strings, CONTINUATION frames, and cache-key canonicalization.
+- Kernel space receives an already-decided policy keyed by `{conn_id, stream_id}`.
+- SK_MSG executes the policy by checking the current socket-message stream ID against `waitleader_h2_streams`.
+
+This turns the kernel into a policy executor rather than a semantic parser.
+
+### 15.2 Kernel Policy Key
+
+M10 adds this shared key:
+
+```c
+struct h2_stream_key {
+    __u32 conn_id;
+    __u32 stream_id;
+};
+```
+
+The SK_MSG program computes `conn_id` from socket metadata and reads `stream_id` from the HTTP/2 frame header. It then checks the pinned hash map:
+
+```text
+/sys/fs/bpf/waitleader_h2_streams
+```
+
+If a key is present, the SK_MSG hook returns `SK_DROP` without parsing HPACK.
+
+### 15.3 User-Space Semantic Proxy
+
+M10 adds `waitleader_h2_policy`, a C++ control-plane utility that represents the DBWaller/nghttp2 integration point:
+
+```bash
+sudo /home/ubuntucplusplus/code/WaitLeader/build/waitleader_h2_policy 0xC001D00D 7 3
+```
+
+This inserts a temporary policy for connection `0xC001D00D`, stream `7`, holds it for three seconds, and then releases it.
+
+### 15.4 M10 Observability
+
+M10 adds observer support for active HTTP/2 stream policies:
+
+- `active_h2_stream_policies`,
+- `suppressed_h2_stream_followers_active`,
+- `h2_stream_policy_hit_total`,
+- `h2_stream_policy_drop_total`.
+
+### 15.5 M10 Validation Evidence
+
+- The hybrid SK_MSG program loaded through the Linux verifier as program ID `124`.
+- The hybrid SK_MSG program had JITed size `10648B`.
+- The stream policy map was pinned at `/sys/fs/bpf/waitleader_h2_streams`.
+- `waitleader_h2_policy` inserted `{conn_id = 0xC001D00D, stream_id = 7}`.
+- `waitleader_observe` reported `active_h2_stream_policies = 1` during the hold window.
+- `bpftool map dump pinned /sys/fs/bpf/waitleader_h2_streams` showed the exact key/value entry.
+- `waitleader_observe` reported `active_h2_stream_policies = 0` after release.
+
+Defense artifacts:
+
+- M10 summary JSON: `docs/artifacts/m10_semantic_policy_summary.json`.
+- Figure 7 vector chart: `docs/artifacts/m10_hybrid_offload.svg`.
+
+## 16. Risks and Constraints
 
 - Packet parsing in XDP is limited by verifier constraints and the need to keep the fast path small.
 - URI extraction may be incomplete for encrypted or non-HTTP traffic.
 - Dropped packets rely on client retry behavior, so suppression must be paired with sane retry policy upstream.
 - Key collisions in the request hash should be rare, but they must be considered when selecting the hash function and map keying strategy.
+- IPv6 extension headers are not parsed in the kernel fast path; they intentionally pass to DBWaller.
+- XDP does not reassemble fragmented HTTP payloads; fragmented traffic intentionally falls back to user-space coalescing.
+- Full general HTTP/2 suppression is not complete until WaitLeader can safely extract canonical `:path` values from HPACK Huffman/dynamic-table/CONTINUATION cases or receive those canonical keys from a trusted user-space assist.
+- SK_MSG deployment requires a sockmap/kTLS attach path; verifier acceptance proves bytecode safety but does not by itself attach sockets to the verdict program.
 
-## 14. Open Questions
+## 17. Open Questions
 
 - Which request identity fields are considered canonical for key generation?
 - Should suppression be scoped to HTTP GET only, or extended to other idempotent methods?
 - Should the kernel path drop immediately, or should it support a future suspend/resume mode?
 - What telemetry contract will DBWaller expose for leader election and completion?
+- Should HTTP/2 canonical key extraction live in bounded eBPF bytecode or in the DBWaller/kTLS user-space integration?
 
-## 15. Summary
+## 18. Summary
 
 WaitLeader moves duplicate-request suppression from the application layer into the Linux networking fast path. By combining eBPF/XDP with a small user-space control daemon, the system can identify active leaders early and drop follower traffic before it consumes application or database resources.

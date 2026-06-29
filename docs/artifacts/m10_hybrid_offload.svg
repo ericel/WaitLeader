@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="760" viewBox="0 0 1300 760">
+  <style>
+    .bg { fill: #fbfaf7; }
+    .title { font: 700 34px Georgia, serif; fill: #202020; }
+    .subtitle { font: 18px Georgia, serif; fill: #555; }
+    .box { fill: #ffffff; stroke: #d8d0c2; stroke-width: 2; }
+    .kernel { fill: #edf7ee; stroke: #0b7a28; stroke-width: 2; }
+    .user { fill: #eef4ff; stroke: #1f66d1; stroke-width: 2; }
+    .warn { fill: #fff4e5; stroke: #b45309; stroke-width: 2; }
+    .text { font: 18px Georgia, serif; fill: #222; }
+    .small { font: 15px Georgia, serif; fill: #555; }
+    .metric { font: 700 19px Georgia, serif; fill: #111; }
+    .arrow { stroke: #333; stroke-width: 3; marker-end: url(#arrowhead); fill: none; }
+  </style>
+  <defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#333" /></marker></defs>
+  <rect class="bg" width="100%" height="100%" />
+  <text x="70" y="58" class="title">WaitLeader M10: Semantic-Aware HTTP/2 Hybrid Offload</text>
+  <text x="70" y="92" class="subtitle">User space owns HPACK correctness; eBPF owns cheap conn_id/stream_id policy enforcement.</text>
+
+  <rect x="70" y="145" width="330" height="150" rx="18" class="user" />
+  <text x="95" y="185" class="metric">DBWaller / nghttp2</text>
+  <text x="95" y="222" class="text">Decode TLS + HTTP/2 + HPACK</text>
+  <text x="95" y="252" class="text">Elect cache-miss leader</text>
+  <text x="95" y="282" class="text">Compute semantic policy</text>
+
+  <rect x="500" y="145" width="330" height="150" rx="18" class="box" />
+  <text x="525" y="185" class="metric">Policy Key</text>
+  <text x="525" y="225" class="text">conn_id = 0xC001D00D</text>
+  <text x="525" y="258" class="text">stream_id = 7</text>
+
+  <rect x="930" y="145" width="300" height="150" rx="18" class="kernel" />
+  <text x="955" y="185" class="metric">eBPF SK_MSG</text>
+  <text x="955" y="222" class="text">Blind policy executor</text>
+  <text x="955" y="252" class="text">No HPACK parsing required</text>
+  <text x="955" y="282" class="text">Verdict: SK_PASS / SK_DROP</text>
+
+  <path d="M400 220 C445 220 455 220 500 220" class="arrow" />
+  <path d="M830 220 C875 220 885 220 930 220" class="arrow" />
+
+  <rect x="170" y="390" width="960" height="145" rx="18" class="kernel" />
+  <text x="205" y="432" class="metric">Pinned Map: /sys/fs/bpf/waitleader_h2_streams</text>
+  <text x="205" y="470" class="text">Observed active_h2_stream_policies during hold: <tspan class="metric">1</tspan></text>
+  <text x="205" y="505" class="text">Observed active_h2_stream_policies after release: <tspan class="metric">0</tspan></text>
+
+  <rect x="170" y="575" width="960" height="95" rx="18" class="warn" />
+  <text x="205" y="615" class="metric">Design Boundary</text>
+  <text x="205" y="648" class="text">Live SK_MSG_DROP still requires sockmap/kTLS socket attachment; M10 validates verifier-safe policy mutation and map observability.</text>
+</svg>

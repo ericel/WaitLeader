@@ -1,0 +1,140 @@
+{
+  "avg_latency_ms": 827.1540161428571,
+  "completed": 7,
+  "concurrent_clients": 120,
+  "dropped": 113,
+  "duration_s": 0.833822078000594,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 831.675407,
+  "p95_latency_ms": 830.5421044999999,
+  "phase": "waitleader",
+  "port": 8080
+}
+
+{
+  "avg_latency_ms": 823.31469125,
+  "completed": 12,
+  "concurrent_clients": 120,
+  "dropped": 108,
+  "duration_s": 0.827190898000481,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 825.698269,
+  "p95_latency_ms": 825.694144,
+  "phase": "waitleader",
+  "port": 8080
+}
+
+{
+  "avg_latency_ms": 810.9902975294118,
+  "completed": 17,
+  "concurrent_clients": 120,
+  "dropped": 103,
+  "duration_s": 0.8158794990013121,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 814.59483,
+  "p95_latency_ms": 814.4945628,
+  "phase": "waitleader",
+  "port": 8080
+}
+
+{
+  "avg_latency_ms": 807.5321341666667,
+  "completed": 12,
+  "concurrent_clients": 120,
+  "dropped": 108,
+  "duration_s": 0.8089674849998119,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 808.330316,
+  "p95_latency_ms": 808.26422415,
+  "phase": "waitleader",
+  "port": 8080
+}
+
+{
+  "avg_latency_ms": 810.7502994210527,
+  "completed": 19,
+  "concurrent_clients": 120,
+  "dropped": 101,
+  "duration_s": 0.8161108739986958,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 814.004662,
+  "p95_latency_ms": 813.9283114000001,
+  "phase": "waitleader",
+  "port": 8080
+}
+
+{
+  "avg_latency_ms": 803.6640207142857,
+  "completed": 14,
+  "concurrent_clients": 120,
+  "dropped": 106,
+  "duration_s": 0.8060042280012567,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 804.88935,
+  "p95_latency_ms": 804.77646645,
+  "phase": "waitleader",
+  "port": 8080
+}
+
+{
+  "avg_latency_ms": 808.7806250555556,
+  "completed": 18,
+  "concurrent_clients": 120,
+  "dropped": 102,
+  "duration_s": 0.8108975300001475,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 809.833611,
+  "p95_latency_ms": 809.7008342,
+  "phase": "waitleader",
+  "port": 8080
+}
+
+{
+  "avg_latency_ms": 808.8162901891892,
+  "completed": 37,
+  "concurrent_clients": 120,
+  "dropped": 83,
+  "duration_s": 0.8160670399993251,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 813.063952,
+  "p95_latency_ms": 812.8629174,
+  "phase": "waitleader",
+  "port": 8080
+}
+
+{
+  "avg_latency_ms": 808.7283382,
+  "completed": 10,
+  "concurrent_clients": 120,
+  "dropped": 110,
+  "duration_s": 0.8105336949993216,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 809.840153,
+  "p95_latency_ms": 809.4737963,
+  "phase": "waitleader",
+  "port": 8080
+}
+
+{
+  "avg_latency_ms": 806.2616036666667,
+  "completed": 27,
+  "concurrent_clients": 120,
+  "dropped": 93,
+  "duration_s": 0.8103802790010377,
+  "failed": 0,
+  "host": "10.200.1.1",
+  "max_latency_ms": 809.347401,
+  "p95_latency_ms": 809.0743805,
+  "phase": "waitleader",
+  "port": 8080
+}
+

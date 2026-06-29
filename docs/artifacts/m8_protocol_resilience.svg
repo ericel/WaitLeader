@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <style>
+    .bg { fill: #fbfaf7; }
+    .title { font: 700 34px Georgia, serif; fill: #202020; }
+    .subtitle { font: 18px Georgia, serif; fill: #555; }
+    .axis { stroke: #222; stroke-width: 2; }
+    .grid { stroke: #d7d2c8; stroke-width: 1; }
+    .tick { font: 15px Georgia, serif; fill: #666; }
+    .label { font: 18px Georgia, serif; fill: #333; }
+    .metric { font: 700 18px Georgia, serif; fill: #222; }
+    .legend-box { fill: #ffffff; stroke: #e4ded2; stroke-width: 1; }
+  </style>
+  <rect class="bg" width="100%" height="100%" />
+  <text x="92" y="52" class="title">WaitLeader M8 Protocol Resilience</text>
+  <text x="92" y="84" class="subtitle">Dual-stack classification and graceful pass-through counters from pinned eBPF maps</text>
+  <line x1="92" y1="628.00" x2="1108" y2="628.00" class="grid" /><line x1="92" y1="520.80" x2="1108" y2="520.80" class="grid" /><line x1="92" y1="413.60" x2="1108" y2="413.60" class="grid" /><line x1="92" y1="306.40" x2="1108" y2="306.40" class="grid" /><line x1="92" y1="199.20" x2="1108" y2="199.20" class="grid" /><line x1="92" y1="92.00" x2="1108" y2="92.00" class="grid" />
+  <text x="74" y="633.00" class="tick" text-anchor="end">0</text><text x="74" y="525.80" class="tick" text-anchor="end">12</text><text x="74" y="418.60" class="tick" text-anchor="end">24</text><text x="74" y="311.40" class="tick" text-anchor="end">36</text><text x="74" y="204.20" class="tick" text-anchor="end">48</text><text x="74" y="97.00" class="tick" text-anchor="end">60</text>
+  <text x="92.00" y="678" class="tick" text-anchor="middle">0</text><text x="295.20" y="678" class="tick" text-anchor="middle">6</text><text x="498.40" y="678" class="tick" text-anchor="middle">12</text><text x="701.60" y="678" class="tick" text-anchor="middle">17</text><text x="904.80" y="678" class="tick" text-anchor="middle">23</text><text x="1108.00" y="678" class="tick" text-anchor="middle">29</text>
+  <line x1="92" y1="628" x2="1108" y2="628" class="axis" />
+  <line x1="92" y1="92" x2="92" y2="628" class="axis" />
+  <text x="600.0" y="706" class="label" text-anchor="middle">Observer sample index</text>
+  <text x="30" y="360.0" class="label" text-anchor="middle" transform="rotate(-90 30 360.0)">Cumulative packets</text>
+  <polyline points="92.00,628.00 127.03,628.00 162.07,628.00 197.10,628.00 232.14,628.00 267.17,360.00 302.21,360.00 337.24,360.00 372.28,360.00 407.31,360.00 442.34,360.00 477.38,360.00 512.41,360.00 547.45,360.00 582.48,360.00 617.52,360.00 652.55,360.00 687.59,360.00 722.62,360.00 757.66,360.00 792.69,360.00 827.72,360.00 862.76,360.00 897.79,360.00 932.83,360.00 967.86,360.00 1002.90,360.00 1037.93,360.00 1072.97,360.00 1108.00,360.00" fill="none" stroke="#1f66d1" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" /><polyline points="92.00,628.00 127.03,628.00 162.07,628.00 197.10,628.00 232.14,628.00 267.17,628.00 302.21,628.00 337.24,628.00 372.28,628.00 407.31,360.00 442.34,360.00 477.38,360.00 512.41,360.00 547.45,360.00 582.48,360.00 617.52,360.00 652.55,360.00 687.59,360.00 722.62,360.00 757.66,360.00 792.69,360.00 827.72,360.00 862.76,360.00 897.79,360.00 932.83,360.00 967.86,360.00 1002.90,360.00 1037.93,360.00 1072.97,360.00 1108.00,360.00" fill="none" stroke="#0b7a28" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" /><polyline points="92.00,628.00 127.03,628.00 162.07,628.00 197.10,628.00 232.14,628.00 267.17,628.00 302.21,628.00 337.24,628.00 372.28,628.00 407.31,628.00 442.34,628.00 477.38,628.00 512.41,628.00 547.45,610.13 582.48,610.13 617.52,610.13 652.55,610.13 687.59,592.27 722.62,592.27 757.66,592.27 792.69,592.27 827.72,592.27 862.76,574.40 897.79,574.40 932.83,574.40 967.86,574.40 1002.90,556.53 1037.93,556.53 1072.97,556.53 1108.00,556.53" fill="none" stroke="#b45309" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="10 8" /><polyline points="92.00,628.00 127.03,628.00 162.07,628.00 197.10,628.00 232.14,628.00 267.17,360.00 302.21,360.00 337.24,360.00 372.28,360.00 407.31,92.00 442.34,92.00 477.38,92.00 512.41,92.00 547.45,92.00 582.48,92.00 617.52,92.00 652.55,92.00 687.59,92.00 722.62,92.00 757.66,92.00 792.69,92.00 827.72,92.00 862.76,92.00 897.79,92.00 932.83,92.00 967.86,92.00 1002.90,92.00 1037.93,92.00 1072.97,92.00 1108.00,92.00" fill="none" stroke="#b42318" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+  <rect x="780" y="108" width="335" height="176" rx="18" class="legend-box" />
+  <line x1="805" y1="142" x2="860" y2="142" stroke="#1f66d1" stroke-width="4" /><text x="875" y="148" class="label">IPv4 TCP/8080 classified: <tspan class="metric">30</tspan></text><line x1="805" y1="178" x2="860" y2="178" stroke="#0b7a28" stroke-width="4" /><text x="875" y="184" class="label">IPv6 TCP/8080 classified: <tspan class="metric">30</tspan></text><line x1="805" y1="214" x2="860" y2="214" stroke="#b45309" stroke-width="4" stroke-dasharray="10 8" /><text x="875" y="220" class="label">IPv4 fragments passed: <tspan class="metric">8</tspan></text><line x1="805" y1="250" x2="860" y2="250" stroke="#b42318" stroke-width="4" /><text x="875" y="256" class="label">Malformed/partial packets passed: <tspan class="metric">60</tspan></text>
+  <text x="92" y="638" class="subtitle">Policy: IPv4 fragments and IPv6 extension chains degrade to user-space coalescing.</text>
+</svg>

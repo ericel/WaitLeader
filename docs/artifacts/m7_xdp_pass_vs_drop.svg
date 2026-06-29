@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <style>
+    .bg { fill: #fbfaf7; }
+    .title { font: 700 34px Georgia, serif; fill: #202020; }
+    .subtitle { font: 18px Georgia, serif; fill: #555; }
+    .axis { stroke: #222; stroke-width: 2; }
+    .grid { stroke: #d7d2c8; stroke-width: 1; }
+    .tick { font: 15px Georgia, serif; fill: #666; }
+    .label { font: 18px Georgia, serif; fill: #333; }
+    .metric { font: 700 18px Georgia, serif; fill: #222; }
+    .pass { fill: none; stroke: #1f66d1; stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+    .drop { fill: none; stroke: #b42318; stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+    .http { fill: none; stroke: #0b7a28; stroke-width: 3; stroke-dasharray: 10 8; stroke-linejoin: round; stroke-linecap: round; }
+    .legend-box { fill: #ffffff; stroke: #e4ded2; stroke-width: 1; }
+  </style>
+  <rect class="bg" width="100%" height="100%" />
+  <text x="92" y="52" class="title">WaitLeader M7 Observability: XDP Packet Disposition</text>
+  <text x="92" y="84" class="subtitle">Cumulative counter deltas from pinned eBPF maps during a sustained stampede burst</text>
+
+  <line x1="92" y1="628.00" x2="1108" y2="628.00" class="grid" /><line x1="92" y1="520.80" x2="1108" y2="520.80" class="grid" /><line x1="92" y1="413.60" x2="1108" y2="413.60" class="grid" /><line x1="92" y1="306.40" x2="1108" y2="306.40" class="grid" /><line x1="92" y1="199.20" x2="1108" y2="199.20" class="grid" /><line x1="92" y1="92.00" x2="1108" y2="92.00" class="grid" />
+  <text x="74" y="633.00" class="tick" text-anchor="end">0</text><text x="74" y="525.80" class="tick" text-anchor="end">275</text><text x="74" y="418.60" class="tick" text-anchor="end">550</text><text x="74" y="311.40" class="tick" text-anchor="end">825</text><text x="74" y="204.20" class="tick" text-anchor="end">1100</text><text x="74" y="97.00" class="tick" text-anchor="end">1375</text>
+  <text x="92.00" y="678" class="tick" text-anchor="middle">0</text><text x="295.20" y="678" class="tick" text-anchor="middle">8</text><text x="498.40" y="678" class="tick" text-anchor="middle">16</text><text x="701.60" y="678" class="tick" text-anchor="middle">23</text><text x="904.80" y="678" class="tick" text-anchor="middle">31</text><text x="1108.00" y="678" class="tick" text-anchor="middle">39</text>
+
+  <line x1="92" y1="628" x2="1108" y2="628" class="axis" />
+  <line x1="92" y1="92" x2="92" y2="628" class="axis" />
+  <text x="600.0" y="706" class="label" text-anchor="middle">Observer sample index</text>
+  <text x="30" y="360.0" class="label" text-anchor="middle" transform="rotate(-90 30 360.0)">Cumulative packets</text>
+
+  <polyline points="92.00,628.00 118.05,578.10 144.10,578.10 170.15,578.10 196.21,578.10 222.26,578.10 248.31,526.65 274.36,526.65 300.41,526.65 326.46,526.65 352.51,473.24 378.56,473.24 404.62,473.24 430.67,473.24 456.72,421.79 482.77,421.79 508.82,421.79 534.87,367.60 560.92,367.60 586.97,367.60 613.03,367.60 639.08,314.98 665.13,314.98 691.18,314.98 717.23,314.98 743.28,261.18 769.33,261.18 795.38,261.18 821.44,261.18 847.49,199.98 873.54,199.98 899.59,199.98 925.64,149.30 951.69,149.30 977.74,149.30 1003.79,149.30 1029.85,92.00 1055.90,92.00 1081.95,92.00 1108.00,92.00" class="pass" />
+  <polyline points="92.00,628.00 118.05,625.27 144.10,622.54 170.15,619.81 196.21,617.09 222.26,617.09 248.31,612.41 274.36,607.73 300.41,600.32 326.46,595.65 352.51,589.02 378.56,582.39 404.62,575.76 430.67,564.46 456.72,552.38 482.77,547.70 508.82,547.70 534.87,528.99 560.92,521.58 586.97,509.50 613.03,504.82 639.08,491.95 665.13,486.50 691.18,474.41 717.23,461.55 743.28,454.53 769.33,440.50 795.38,433.09 821.44,420.62 847.49,406.19 873.54,377.35 899.59,362.92 925.64,339.92 951.69,336.03 977.74,326.67 1003.79,312.25 1029.85,291.20 1055.90,280.67 1081.95,263.13 1108.00,248.71" class="drop" />
+  <polyline points="92.00,628.00 118.05,625.27 144.10,622.54 170.15,619.81 196.21,617.09 222.26,617.09 248.31,612.41 274.36,607.73 300.41,600.32 326.46,595.65 352.51,589.02 378.56,582.39 404.62,575.76 430.67,564.46 456.72,552.38 482.77,547.70 508.82,547.70 534.87,528.99 560.92,521.58 586.97,509.50 613.03,504.82 639.08,491.95 665.13,486.50 691.18,474.41 717.23,461.55 743.28,454.53 769.33,440.50 795.38,433.09 821.44,420.62 847.49,406.19 873.54,377.35 899.59,362.92 925.64,339.92 951.69,336.03 977.74,326.67 1003.79,312.25 1029.85,291.20 1055.90,280.67 1081.95,263.13 1108.00,248.71" class="http" />
+
+  <rect x="795" y="108" width="310" height="146" rx="18" class="legend-box" />
+  <line x1="825" y1="142" x2="880" y2="142" class="pass" />
+  <text x="895" y="148" class="label">xdp_pass_total delta: <tspan class="metric">1375</tspan></text>
+  <line x1="825" y1="182" x2="880" y2="182" class="drop" />
+  <text x="895" y="188" class="label">xdp_drop_total delta: <tspan class="metric">973</tspan></text>
+  <line x1="825" y1="222" x2="880" y2="222" class="http" />
+  <text x="895" y="228" class="label">http_get_total delta: <tspan class="metric">973</tspan></text>
+
+  <text x="92" y="638" class="subtitle">Peak active leaders: 1 | Peak suppressed followers on active leader: 973</text>
+</svg>

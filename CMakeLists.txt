@@ -17,6 +17,16 @@ add_custom_command(
 
 add_custom_target(xdp_bytecode ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/waitleader_xdp.o)
 
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/waitleader_sk_msg.o
+    COMMAND ${CLANG_EXE} -O2 -g -target bpf -I${WAITLEADER_MULTIARCH_INCLUDE} -c ${CMAKE_CURRENT_SOURCE_DIR}/src/bpf/waitleader_sk_msg.c -o ${CMAKE_CURRENT_BINARY_DIR}/waitleader_sk_msg.o
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bpf/waitleader_sk_msg.c ${CMAKE_CURRENT_SOURCE_DIR}/src/bpf/waitleader_maps.h
+    COMMENT "Compiling eBPF SK_MSG encrypted data plane"
+    VERBATIM
+)
+
+add_custom_target(sk_msg_bytecode ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/waitleader_sk_msg.o)
+
 # --- USER SPACE CONTROL PLANE ---
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBBPF REQUIRED libbpf)
@@ -32,6 +42,10 @@ target_link_libraries(dbwaller_xdp_mock PRIVATE ${LIBBPF_LIBRARIES} elf z)
 add_executable(waitleader_observe src/ctrl/WaitLeaderObserve.cpp)
 target_include_directories(waitleader_observe PRIVATE ${LIBBPF_INCLUDE_DIRS})
 target_link_libraries(waitleader_observe PRIVATE ${LIBBPF_LIBRARIES} elf z)
+
+add_executable(waitleader_h2_policy src/ctrl/WaitLeaderH2Policy.cpp)
+target_include_directories(waitleader_h2_policy PRIVATE ${LIBBPF_INCLUDE_DIRS})
+target_link_libraries(waitleader_h2_policy PRIVATE ${LIBBPF_LIBRARIES} elf z)
 
 enable_testing()
 

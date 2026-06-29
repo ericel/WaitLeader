@@ -27,6 +27,20 @@ constexpr MetricView kMetrics[] = {
     {WAITLEADER_METRIC_URI_HASH_MISS_TOTAL, "uri_hash_miss_total"},
     {WAITLEADER_METRIC_MALFORMED_PACKET_TOTAL, "malformed_packet_total"},
     {WAITLEADER_METRIC_NON_HTTP_PASS_TOTAL, "non_http_pass_total"},
+    {WAITLEADER_METRIC_IPV6_TCP_8080_TOTAL, "ipv6_tcp_8080_total"},
+    {WAITLEADER_METRIC_FRAGMENTED_PASS_TOTAL, "fragmented_pass_total"},
+    {WAITLEADER_METRIC_RETRANSMISSION_DROP_TOTAL, "retransmission_drop_total"},
+    {WAITLEADER_METRIC_SK_MSG_TOTAL, "sk_msg_total"},
+    {WAITLEADER_METRIC_SK_MSG_PASS_TOTAL, "sk_msg_pass_total"},
+    {WAITLEADER_METRIC_SK_MSG_DROP_TOTAL, "sk_msg_drop_total"},
+    {WAITLEADER_METRIC_TLS_HTTP1_GET_TOTAL, "tls_http1_get_total"},
+    {WAITLEADER_METRIC_TLS_HTTP2_PREFACE_TOTAL, "tls_http2_preface_total"},
+    {WAITLEADER_METRIC_TLS_HTTP2_UNSUPPORTED_TOTAL, "tls_http2_unsupported_total"},
+    {WAITLEADER_METRIC_TLS_HTTP2_HEADERS_TOTAL, "tls_http2_headers_total"},
+    {WAITLEADER_METRIC_TLS_HTTP2_PATH_TOTAL, "tls_http2_path_total"},
+    {WAITLEADER_METRIC_TLS_HTTP2_HPACK_UNSUPPORTED_TOTAL, "tls_http2_hpack_unsupported_total"},
+    {WAITLEADER_METRIC_H2_STREAM_POLICY_HIT_TOTAL, "h2_stream_policy_hit_total"},
+    {WAITLEADER_METRIC_H2_STREAM_POLICY_DROP_TOTAL, "h2_stream_policy_drop_total"},
 };
 
 class Fd {
@@ -65,6 +79,11 @@ struct LeaderSummary {
     std::uint64_t suppressed_followers = 0;
 };
 
+struct StreamPolicySummary {
+    std::uint64_t active_policies = 0;
+    std::uint64_t suppressed_followers = 0;
+};
+
 std::uint64_t read_metric(int metrics_fd, waitleader_metric metric)
 {
     __u32 key = static_cast<__u32>(metric);
@@ -95,13 +114,36 @@ LeaderSummary summarize_leaders(int leader_fd)
     return summary;
 }
 
-void print_text(int metrics_fd, int leader_fd)
+StreamPolicySummary summarize_stream_policies(int stream_fd)
+{
+    StreamPolicySummary summary;
+    h2_stream_key key {};
+    h2_stream_key next_key {};
+    bool have_key = false;
+
+    while (bpf_map_get_next_key(stream_fd, have_key ? &key : nullptr, &next_key) == 0) {
+        leader_metadata value {};
+        if (bpf_map_lookup_elem(stream_fd, &next_key, &value) == 0) {
+            summary.active_policies++;
+            summary.suppressed_followers += value.suppressed_followers_count;
+        }
+        key = next_key;
+        have_key = true;
+    }
+
+    return summary;
+}
+
+void print_text(int metrics_fd, int leader_fd, int stream_fd)
 {
     const LeaderSummary leaders = summarize_leaders(leader_fd);
+    const StreamPolicySummary streams = stream_fd >= 0 ? summarize_stream_policies(stream_fd) : StreamPolicySummary {};
 
     std::cout << "=== WaitLeader Observability Snapshot ===\n";
     std::cout << "active_leaders: " << leaders.active_leaders << "\n";
     std::cout << "suppressed_followers_active: " << leaders.suppressed_followers << "\n";
+    std::cout << "active_h2_stream_policies: " << streams.active_policies << "\n";
+    std::cout << "suppressed_h2_stream_followers_active: " << streams.suppressed_followers << "\n";
 
     for (const auto &metric : kMetrics) {
         std::cout << metric.name << ": " << read_metric(metrics_fd, metric.id) << "\n";
@@ -109,13 +151,16 @@ void print_text(int metrics_fd, int leader_fd)
     std::cout << std::flush;
 }
 
-void print_json(int metrics_fd, int leader_fd)
+void print_json(int metrics_fd, int leader_fd, int stream_fd)
 {
     const LeaderSummary leaders = summarize_leaders(leader_fd);
+    const StreamPolicySummary streams = stream_fd >= 0 ? summarize_stream_policies(stream_fd) : StreamPolicySummary {};
 
     std::cout << "{";
     std::cout << "\"active_leaders\":" << leaders.active_leaders << ",";
-    std::cout << "\"suppressed_followers_active\":" << leaders.suppressed_followers;
+    std::cout << "\"suppressed_followers_active\":" << leaders.suppressed_followers << ",";
+    std::cout << "\"active_h2_stream_policies\":" << streams.active_policies << ",";
+    std::cout << "\"suppressed_h2_stream_followers_active\":" << streams.suppressed_followers;
 
     for (const auto &metric : kMetrics) {
         std::cout << ",\"" << metric.name << "\":" << read_metric(metrics_fd, metric.id);
@@ -129,6 +174,7 @@ int main(int argc, char **argv)
 {
     std::string metrics_path = "/sys/fs/bpf/waitleader_metrics";
     std::string leader_path = "/sys/fs/bpf/waitleader_map";
+    std::string stream_path = "/sys/fs/bpf/waitleader_h2_streams";
     bool json = false;
     bool once = false;
     int interval_ms = 1000;
@@ -143,6 +189,8 @@ int main(int argc, char **argv)
             metrics_path = argv[++i];
         } else if (arg == "--leader-map" && i + 1 < argc) {
             leader_path = argv[++i];
+        } else if (arg == "--stream-map" && i + 1 < argc) {
+            stream_path = argv[++i];
         } else if (arg == "--interval-ms" && i + 1 < argc) {
             interval_ms = std::stoi(argv[++i]);
         } else {
@@ -165,11 +213,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    Fd stream_fd(stream_path.c_str());
+
     do {
         if (json) {
-            print_json(metrics_fd.get(), leader_fd.get());
+            print_json(metrics_fd.get(), leader_fd.get(), stream_fd.get());
         } else {
-            print_text(metrics_fd.get(), leader_fd.get());
+            print_text(metrics_fd.get(), leader_fd.get(), stream_fd.get());
         }
 
         if (!once) {
